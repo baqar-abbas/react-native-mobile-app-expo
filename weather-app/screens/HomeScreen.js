@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 
 import {
   View,
@@ -12,14 +13,17 @@ import {
   Image,
 } from "react-native";
 
-import { getWeatherByCity } from "../services/weatherService";
+import {
+  getWeatherByCity,
+  getWeatherByCoords,
+} from "../services/weatherService";
 
 export default function HomeScreen() {
   const [city, setCity] = useState("");
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Fetch weather function
+  // Fetch weather by city
   const fetchWeather = async (selectedCity = city) => {
     try {
       setLoading(true);
@@ -39,21 +43,58 @@ export default function HomeScreen() {
     }
   };
 
-  // Load last searched city when app starts
+  // Fetch weather using GPS location
+  const fetchWeatherByLocation = async () => {
+    try {
+      setLoading(true);
+
+      // Request location permission
+      let { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        alert("Location permission denied");
+        return;
+      }
+
+      // Get coordinates
+      const location = await Location.getCurrentPositionAsync({});
+
+      const lat = location.coords.latitude;
+      const lon = location.coords.longitude;
+
+      // Call weather API
+      const data = await getWeatherByCoords(lat, lon);
+
+      setWeather(data);
+      setCity(data.name);
+
+      // Save detected city
+      await AsyncStorage.setItem("lastCity", data.name);
+    } catch (error) {
+      console.log(error);
+      alert("Unable to fetch location weather");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Smart startup logic
   useEffect(() => {
-    const loadLastCity = async () => {
+    const initializeWeather = async () => {
       try {
         const savedCity = await AsyncStorage.getItem("lastCity");
 
         if (savedCity) {
           fetchWeather(savedCity);
+        } else {
+          fetchWeatherByLocation();
         }
       } catch (error) {
-        console.log("Error loading saved city", error);
+        console.log("Initialization error", error);
       }
     };
 
-    loadLastCity();
+    initializeWeather();
   }, []);
 
   return (
@@ -73,6 +114,10 @@ export default function HomeScreen() {
           onPress={() => fetchWeather()}
           disabled={loading}
         />
+
+        <View style={{ marginTop: 10 }}>
+          <Button title="Use My Location" onPress={fetchWeatherByLocation} />
+        </View>
 
         {loading && (
           <ActivityIndicator size="large" style={{ marginTop: 20 }} />

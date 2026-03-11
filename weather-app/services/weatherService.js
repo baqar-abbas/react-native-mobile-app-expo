@@ -41,3 +41,35 @@ export const getWeatherByCity = async (city) => {
     throw new Error("Unable to fetch weather right now. Please try again.");
   }
 };
+
+export const getWeatherByCoords = async (lat, lon) => {
+  if (!API_KEY) {
+    throw new Error(
+      "Missing API key. Add EXPO_PUBLIC_WEATHER_API_KEY to .env and restart Expo.",
+    );
+  }
+  try {
+    const response = await axios.get(BASE_URL, {
+      params: {
+        lat,
+        lon,
+        appid: API_KEY,
+        units: "metric",
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    const status = error?.response?.status;
+
+    if (status === 404) {
+      throw new Error("Location not found. Please try again.");
+    }
+
+    if (status === 401) {
+      throw new Error("Invalid API key. Check your OpenWeather API key.");
+    }
+
+    throw new Error("Unable to fetch weather right now. Please try again.");
+  }
+};
