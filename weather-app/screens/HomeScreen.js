@@ -20,7 +20,10 @@ import {
 import {
   getWeatherByCity,
   getWeatherByCoords,
+  getForecastByCity,
+  getForecastByCoords,
 } from "../services/weatherService";
+import ForecastStrip from "../components/ForecastStrip";
 
 const { width } = Dimensions.get("window");
 
@@ -48,17 +51,23 @@ const StatCard = ({ icon, label, value }) => (
 export default function HomeScreen() {
   const [city, setCity] = useState("");
   const [weather, setWeather] = useState(null);
+  const [forecast, setForecast] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const fetchWeather = async (selectedCity = city) => {
     try {
       setLoading(true);
-      const data = await getWeatherByCity(selectedCity);
+      const [data, forecastData] = await Promise.all([
+        getWeatherByCity(selectedCity),
+        getForecastByCity(selectedCity),
+      ]);
       setWeather(data);
+      setForecast(forecastData);
       setCity(selectedCity);
       await AsyncStorage.setItem("lastCity", selectedCity);
     } catch (error) {
       setWeather(null);
+      setForecast([]);
       alert(error.message || "Unable to fetch weather right now.");
     } finally {
       setLoading(false);
@@ -74,11 +83,14 @@ export default function HomeScreen() {
         return;
       }
       const location = await Location.getCurrentPositionAsync({});
-      const data = await getWeatherByCoords(
-        location.coords.latitude,
-        location.coords.longitude
-      );
+      const lat = location.coords.latitude;
+      const lon = location.coords.longitude;
+      const [data, forecastData] = await Promise.all([
+        getWeatherByCoords(lat, lon),
+        getForecastByCoords(lat, lon),
+      ]);
       setWeather(data);
+      setForecast(forecastData);
       setCity(data.name);
       await AsyncStorage.setItem("lastCity", data.name);
     } catch (error) {
@@ -227,6 +239,11 @@ export default function HomeScreen() {
               />
             </View>
           </View>
+        )}
+
+        {/* 5-Day Forecast — lives below the card */}
+        {forecast.length > 0 && !loading && (
+          <ForecastStrip forecast={forecast} />
         )}
 
         {/* Empty state */}
